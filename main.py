@@ -48,3 +48,27 @@ async def predict(file: UploadFile = File(...)):
         "disease": CLASS_NAMES[result_index],
         "confidence": round(confidence * 100, 2)
     }
+
+from pydantic import BaseModel
+
+class ChatRequest(BaseModel):
+    message: str
+
+@app.post("/chat")
+async def chat(request: ChatRequest):
+    import httpx
+    headers = {
+        "x-api-key": "PASTE_YOUR_API_KEY_HERE",
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json"
+    }
+    body = {
+        "model": "claude-haiku-4-5-20251001",
+        "max_tokens": 500,
+        "system": "You are a plant disease expert. Only answer plant related questions. Keep answers short and helpful.",
+        "messages": [{"role": "user", "content": request.message}]
+    }
+    async with httpx.AsyncClient() as client:
+        response = await client.post("https://api.anthropic.com/v1/messages", headers=headers, json=body)
+        data = response.json()
+        return {"reply": data["content"][0]["text"]}
