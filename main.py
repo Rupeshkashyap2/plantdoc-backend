@@ -58,7 +58,7 @@ class ChatRequest(BaseModel):
 async def chat(request: ChatRequest):
     import httpx
     headers = {
-        "x-api-key": "PASTE_YOUR_API_KEY_HERE",
+        "x-api-key": "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",
         "anthropic-version": "2023-06-01",
         "content-type": "application/json"
     }
