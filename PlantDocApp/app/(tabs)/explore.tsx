@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 
-const CLAUDE_API_KEY = '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';
-
 export default function AIAssistant() {
   const [messages, setMessages] = useState([
     { role: 'assistant', text: 'Hello! I am your plant health assistant. Ask me anything about plant diseases, treatments, or care tips!' }
@@ -12,36 +10,20 @@ export default function AIAssistant() {
 
   const sendMessage = async () => {
     if (!input.trim()) return;
-    const userMsg = { role: 'user', text: input };
-    const newMessages = [...messages, userMsg];
-    setMessages(newMessages);
+    const userInput = input;
+    const userMsg = { role: 'user', text: userInput };
+    setMessages(prev => [...prev, userMsg]);
     setInput('');
     setLoading(true);
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetch('https://plantdoc-backend-5vll.onrender.com/chat', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': CLAUDE_API_KEY,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 500,
-          system: 'You are a plant disease expert assistant. Only answer questions related to plants, diseases, treatments and farming. Keep answers short and helpful.',
-          messages: newMessages.filter(m => m.role === 'user').map(m => ({
-            role: 'user',
-            content: m.text
-          }))
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userInput })
       });
       const data = await response.json();
-      if (data.content && data.content[0]) {
-        const aiMsg = { role: 'assistant', text: data.content[0].text };
-        setMessages(prev => [...prev, aiMsg]);
-      } else {
-        setMessages(prev => [...prev, { role: 'assistant', text: 'Error: ' + JSON.stringify(data) }]);
-      }
+      const aiMsg = { role: 'assistant', text: data.reply };
+      setMessages(prev => [...prev, aiMsg]);
     } catch (e) {
       setMessages(prev => [...prev, { role: 'assistant', text: 'Connection error: ' + e.message }]);
     }
