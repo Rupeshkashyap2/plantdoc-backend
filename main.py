@@ -73,7 +73,7 @@ class ChatRequest(BaseModel):
 async def chat(request: ChatRequest):
     import httpx
     headers = {
-        "x-api-key": "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",
+        "x-api-key": os.environ.get("ANTHROPIC_API_KEY", ""),
         "anthropic-version": "2023-06-01",
         "content-type": "application/json"
     }
