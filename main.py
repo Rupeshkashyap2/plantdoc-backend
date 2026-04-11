@@ -54,7 +54,7 @@ async def predict(file: UploadFile = File(...)):
 async def chat(request: ChatRequest):
     import httpx
     gemini_key = os.environ.get("GEMINI_API_KEY", "")
-    url = f"https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key={gemini_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key={gemini_key}"
     body = {
         "contents": [{
             "parts": [{
