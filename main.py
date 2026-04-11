@@ -53,28 +53,20 @@ async def predict(file: UploadFile = File(...)):
 @app.post("/chat")
 async def chat(request: ChatRequest):
     import httpx
-    headers = {
-        "x-api-key": os.environ.get("ANTHROPIC_API_KEY", ""),
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json"
-    }
+    gemini_key = os.environ.get("GEMINI_API_KEY", "")
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}"
     body = {
-        "model": "claude-haiku-4-5-20251001",
-        "max_tokens": 500,
-        "system": "You are a plant disease expert. Only answer plant related questions. Keep answers short and helpful.",
-        "messages": [{"role": "user", "content": request.message}]
+        "contents": [{
+            "parts": [{
+                "text": f"You are a plant disease expert. Only answer plant related questions. Keep answers short and helpful.\n\nUser question: {request.message}"
+            }]
+        }]
     }
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(
-                "https://api.anthropic.com/v1/messages",
-                headers=headers,
-                json=body
-            )
+            response = await client.post(url, json=body)
             data = response.json()
-            if "content" in data:
-                return {"reply": data["content"][0]["text"]}
-            else:
-                return {"reply": "Error: " + str(data)}
+            reply = data["candidates"][0]["content"]["parts"][0]["text"]
+            return {"reply": reply}
     except Exception as e:
         return {"reply": "Error: " + str(e)}
