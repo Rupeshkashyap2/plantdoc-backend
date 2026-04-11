@@ -35,19 +35,34 @@ CLASS_NAMES = [
 def home():
     return {"message": "PlantDoc API is running!"}
 
-@app.post("/predict")
-async def predict(file: UploadFile = File(...)):
-    # Read image and process it exactly like your test.ipynb does
-    contents = await file.read()
-    image = Image.open(io.BytesIO(contents)).resize((128, 128))
-    input_arr = np.array([np.array(image)])
-    predictions = model.predict(input_arr)
-    result_index = np.argmax(predictions)
-    confidence = float(np.max(predictions))
-    return {
-        "disease": CLASS_NAMES[result_index],
-        "confidence": round(confidence * 100, 2)
+@app.post("/chat")
+async def chat(request: ChatRequest):
+    import httpx
+    headers = {
+        "x-api-key": "YOUR_NEW_API_KEY_HERE",
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json"
     }
+    body = {
+        "model": "claude-haiku-4-5-20251001",
+        "max_tokens": 500,
+        "system": "You are a plant disease expert. Only answer plant related questions. Keep answers short and helpful.",
+        "messages": [{"role": "user", "content": request.message}]
+    }
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers=headers,
+                json=body
+            )
+            data = response.json()
+            if "content" in data:
+                return {"reply": data["content"][0]["text"]}
+            else:
+                return {"reply": "Error: " + str(data)}
+    except Exception as e:
+        return {"reply": "Error: " + str(e)}
 
 from pydantic import BaseModel
 
@@ -58,7 +73,7 @@ class ChatRequest(BaseModel):
 async def chat(request: ChatRequest):
     import httpx
     headers = {
-        "x-api-key": "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",
+        "x-api-key": "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",
         "anthropic-version": "2023-06-01",
         "content-type": "application/json"
     }
