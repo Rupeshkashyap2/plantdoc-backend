@@ -66,7 +66,11 @@ async def chat(request: ChatRequest):
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(url, json=body)
             data = response.json()
-            reply = data["candidates"][0]["content"]["parts"][0]["text"]
-            return {"reply": reply}
+            if "candidates" in data:
+                reply = data["candidates"][0]["content"]["parts"][0]["text"]
+                return {"reply": reply}
+            else:
+                return {"reply": "Gemini error: " + str(data)}
     except Exception as e:
         return {"reply": "Error: " + str(e)}
+ 
