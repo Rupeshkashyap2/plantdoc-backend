@@ -58,12 +58,12 @@ async def chat(request: ChatRequest):
         "Content-Type": "application/json"
     }
     body = {
-        "inputs": f"As a plant disease expert, answer briefly: {request.message}",
+        "inputs": request.message,
     }
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
-                "https://api-inference.huggingface.co/models/google/flan-t5-base",
+                "https://router.huggingface.co/hf-inference/models/google/flan-t5-base",
                 headers=headers,
                 json=body
             )
