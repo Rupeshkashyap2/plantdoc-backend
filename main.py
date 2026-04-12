@@ -63,7 +63,7 @@ async def chat(request: ChatRequest):
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
-                "https://router.huggingface.co/hf-inference/models/google/flan-t5-large",
+                "https://router.huggingface.co/hf-inference/models/google/flan-t5-base",
                 headers=headers,
                 json=body
             )
