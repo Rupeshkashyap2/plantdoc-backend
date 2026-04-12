@@ -58,19 +58,18 @@ async def chat(request: ChatRequest):
         "Content-Type": "application/json"
     }
     body = {
-        "inputs": f"You are a plant disease expert. Answer only plant related questions briefly.\n\nQuestion: {request.message}\n\nAnswer:",
-        "parameters": {"max_new_tokens": 200, "temperature": 0.7}
+        "inputs": f"As a plant disease expert, answer briefly: {request.message}",
     }
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
-                "https://router.huggingface.co/hf-inference/models/mistralai/Mistral-7B-Instruct-v0.1",
+                "https://router.huggingface.co/hf-inference/models/google/flan-t5-large",
                 headers=headers,
                 json=body
             )
             data = response.json()
             if isinstance(data, list):
-                reply = data[0]["generated_text"].split("Answer:")[-1].strip()
+                reply = data[0]["generated_text"].strip()
                 return {"reply": reply}
             else:
                 return {"reply": "Error: " + str(data)}
