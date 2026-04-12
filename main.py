@@ -53,24 +53,26 @@ async def predict(file: UploadFile = File(...)):
 @app.post("/chat")
 async def chat(request: ChatRequest):
     import httpx
-    gemini_key = os.environ.get("GEMINI_API_KEY", "")
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key={gemini_key}"
+    headers = {
+        "Authorization": f"Bearer {os.environ.get('HUGGINGFACE_API_KEY', '')}",
+        "Content-Type": "application/json"
+    }
     body = {
-        "contents": [{
-            "parts": [{
-                "text": f"You are a plant disease expert. Only answer plant related questions. Keep answers short and helpful.\n\nUser question: {request.message}"
-            }]
-        }]
+        "inputs": f"You are a plant disease expert. Answer only plant related questions briefly.\n\nQuestion: {request.message}\n\nAnswer:",
+        "parameters": {"max_new_tokens": 200, "temperature": 0.7}
     }
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(url, json=body)
+            response = await client.post(
+                "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1",
+                headers=headers,
+                json=body
+            )
             data = response.json()
-            if "candidates" in data:
-                reply = data["candidates"][0]["content"]["parts"][0]["text"]
+            if isinstance(data, list):
+                reply = data[0]["generated_text"].split("Answer:")[-1].strip()
                 return {"reply": reply}
             else:
-                return {"reply": "Gemini error: " + str(data)}
+                return {"reply": "Error: " + str(data)}
     except Exception as e:
         return {"reply": "Error: " + str(e)}
- 
