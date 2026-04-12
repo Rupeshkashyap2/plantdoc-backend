@@ -68,15 +68,7 @@ async def chat(request: ChatRequest):
                 json=body
             )
             raw = response.text
-            if not raw or len(raw) < 2:
-                return {"reply": "Model is loading, please try again in 30 seconds!"}
-            data = response.json()
-            if isinstance(data, list):
-                reply = data[0]["generated_text"].strip()
-                return {"reply": reply}
-            elif isinstance(data, dict) and "error" in data:
-                return {"reply": "Error: " + data["error"]}
-            else:
-                return {"reply": "Unexpected response: " + str(data)}
+            status = response.status_code
+            return {"reply": f"Status:{status} Raw:{raw}"}
     except Exception as e:
         return {"reply": "Error: " + str(e)}
