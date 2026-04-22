@@ -37,17 +37,75 @@ class ChatRequest(BaseModel):
 def home():
     return {"message": "PlantDoc API is running!"}
 
+ALLOWED_EXTENSIONS = {"image/jpeg", "image/png", "image/jpg", "image/webp"}
+CONFIDENCE_THRESHOLD = 0.70  # 70% — adjust if needed
+
+def is_plant_leaf(image: Image.Image) -> bool:
+    """Check if image has enough green pixels to be a plant leaf."""
+    img_rgb = image.convert("RGB")
+    img_array = np.array(img_rgb)
+    r, g, b = img_array[:, :, 0], img_array[:, :, 1], img_array[:, :, 2]
+    green_pixels = np.sum((g > r + 15) & (g > b + 15))
+    total_pixels = img_array.shape[0] * img_array.shape[1]
+    green_ratio = green_pixels / total_pixels
+    return green_ratio > 0.10  # at least 10% green pixels
+
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
+    # 1. Check file type
+    if file.content_type not in ALLOWED_EXTENSIONS:
+        return {
+            "error": "Invalid file type. Please upload a JPG or PNG image.",
+            "disease": None,
+            "confidence": None
+        }
+
     contents = await file.read()
-    image = Image.open(io.BytesIO(contents)).resize((128, 128))
-    input_arr = np.array([np.array(image)])
+
+    # 2. Check file size (max 10MB)
+    if len(contents) > 10 * 1024 * 1024:
+        return {
+            "error": "File too large. Please upload an image under 10MB.",
+            "disease": None,
+            "confidence": None
+        }
+
+    try:
+        image = Image.open(io.BytesIO(contents))
+    except Exception:
+        return {
+            "error": "Could not open image. Please upload a valid image file.",
+            "disease": None,
+            "confidence": None
+        }
+
+    # 3. Check if image looks like a plant leaf (green pixel check)
+    if not is_plant_leaf(image):
+        return {
+            "error": "This does not appear to be a plant leaf image. Please upload a clear photo of a plant leaf.",
+            "disease": None,
+            "confidence": None
+        }
+
+    # 4. Run the model
+    image_resized = image.resize((128, 128)).convert("RGB")
+    input_arr = np.array([np.array(image_resized)])
     predictions = model.predict(input_arr)
     result_index = np.argmax(predictions)
     confidence = float(np.max(predictions))
+
+    # 5. Check model confidence
+    if confidence < CONFIDENCE_THRESHOLD:
+        return {
+            "error": "Could not confidently identify a plant disease. Please upload a clearer, closer photo of the leaf.",
+            "disease": None,
+            "confidence": round(confidence * 100, 2)
+        }
+
     return {
         "disease": CLASS_NAMES[result_index],
-        "confidence": round(confidence * 100, 2)
+        "confidence": round(confidence * 100, 2),
+        "error": None
     }
 
 @app.post("/chat")
