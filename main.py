@@ -37,7 +37,7 @@ app.add_middleware(
 )
 
 # =========================================================
-# GLOBAL REQUEST/RESPONSE LOGGER
+# GLOBAL REQUEST LOGGER
 # =========================================================
 
 @app.middleware("http")
@@ -51,9 +51,13 @@ async def log_requests(request: Request, call_next):
     )
 
     try:
+
         response = await call_next(request)
 
-        process_time = round((time.time() - start_time) * 1000, 2)
+        process_time = round(
+            (time.time() - start_time) * 1000,
+            2
+        )
 
         logger.info(
             f"RESPONSE -> METHOD={request.method} "
@@ -79,7 +83,7 @@ async def log_requests(request: Request, call_next):
         )
 
 # =========================================================
-# MODEL LOADING
+# LOAD MODEL
 # =========================================================
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -170,10 +174,11 @@ ALLOWED_EXTENSIONS = {
     "image/webp"
 }
 
-CONFIDENCE_THRESHOLD = 0.70
+# Removed confidence rejection
+LOW_CONFIDENCE_WARNING = 0.70
 
 # =========================================================
-# LEAF DETECTION FUNCTION
+# LEAF VALIDATION FUNCTION
 # =========================================================
 
 def is_plant_leaf(image: Image.Image) -> bool:
@@ -198,7 +203,7 @@ def is_plant_leaf(image: Image.Image) -> bool:
         f"GREEN PIXEL RATIO -> {green_ratio:.2f}"
     )
 
-    return green_ratio > 0.10
+    return green_ratio > 0.05
 
 # =========================================================
 # PREDICT ENDPOINT
@@ -212,13 +217,14 @@ async def predict(file: UploadFile = File(...)):
     logger.info(f"FILENAME -> {file.filename}")
     logger.info(f"CONTENT TYPE -> {file.content_type}")
 
-    # -----------------------------------------------------
+    # =====================================================
     # FILE TYPE VALIDATION
-    # -----------------------------------------------------
+    # =====================================================
 
     if file.content_type not in ALLOWED_EXTENSIONS:
 
         response = {
+            "success": False,
             "error": "Invalid file type. Upload JPG/PNG/WebP image.",
             "disease": None,
             "confidence": None
@@ -228,9 +234,9 @@ async def predict(file: UploadFile = File(...)):
 
         return response
 
-    # -----------------------------------------------------
+    # =====================================================
     # READ FILE
-    # -----------------------------------------------------
+    # =====================================================
 
     contents = await file.read()
 
@@ -240,13 +246,14 @@ async def predict(file: UploadFile = File(...)):
         f"FILE SIZE -> {file_size_mb:.2f} MB"
     )
 
-    # -----------------------------------------------------
+    # =====================================================
     # FILE SIZE CHECK
-    # -----------------------------------------------------
+    # =====================================================
 
     if len(contents) > 10 * 1024 * 1024:
 
         response = {
+            "success": False,
             "error": "File too large. Max size is 10MB.",
             "disease": None,
             "confidence": None
@@ -256,9 +263,9 @@ async def predict(file: UploadFile = File(...)):
 
         return response
 
-    # -----------------------------------------------------
+    # =====================================================
     # OPEN IMAGE
-    # -----------------------------------------------------
+    # =====================================================
 
     try:
 
@@ -273,6 +280,7 @@ async def predict(file: UploadFile = File(...)):
     except Exception as e:
 
         response = {
+            "success": False,
             "error": "Could not open image.",
             "disease": None,
             "confidence": None
@@ -284,27 +292,19 @@ async def predict(file: UploadFile = File(...)):
 
         return response
 
-    # -----------------------------------------------------
+    # =====================================================
     # LEAF VALIDATION
-    # -----------------------------------------------------
+    # =====================================================
 
-    if not is_plant_leaf(image):
+    leaf_detected = is_plant_leaf(image)
 
-        response = {
-            "error": "This does not appear to be a plant leaf image.",
-            "disease": None,
-            "confidence": None
-        }
+    logger.info(
+        f"LEAF DETECTED -> {leaf_detected}"
+    )
 
-        logger.warning(
-            f"NOT A LEAF IMAGE -> {response}"
-        )
-
-        return response
-
-    # -----------------------------------------------------
+    # =====================================================
     # PREPROCESS IMAGE
-    # -----------------------------------------------------
+    # =====================================================
 
     image_resized = image.resize((128, 128)).convert("RGB")
 
@@ -316,9 +316,9 @@ async def predict(file: UploadFile = File(...)):
         f"INPUT SHAPE -> {input_arr.shape}"
     )
 
-    # -----------------------------------------------------
+    # =====================================================
     # MODEL PREDICTION
-    # -----------------------------------------------------
+    # =====================================================
 
     logger.info("RUNNING MODEL PREDICTION...")
 
@@ -338,31 +338,36 @@ async def predict(file: UploadFile = File(...)):
         f"CONFIDENCE -> {confidence:.4f}"
     )
 
-    # -----------------------------------------------------
-    # CONFIDENCE CHECK
-    # -----------------------------------------------------
+    # =====================================================
+    # CONFIDENCE STATUS
+    # =====================================================
 
-    if confidence < CONFIDENCE_THRESHOLD:
+    if confidence < LOW_CONFIDENCE_WARNING:
 
-        response = {
-            "error": "Low confidence prediction. Upload clearer image.",
-            "disease": None,
-            "confidence": round(confidence * 100, 2)
-        }
-
-        logger.warning(
-            f"LOW CONFIDENCE RESPONSE -> {response}"
+        confidence_message = (
+            "Low confidence prediction. "
+            "Try uploading a clearer leaf image."
         )
 
-        return response
+        logger.warning(
+            f"LOW CONFIDENCE PREDICTION -> "
+            f"{predicted_class} ({confidence:.2f})"
+        )
 
-    # -----------------------------------------------------
+    else:
+
+        confidence_message = "Prediction successful"
+
+    # =====================================================
     # FINAL RESPONSE
-    # -----------------------------------------------------
+    # =====================================================
 
     response = {
+        "success": True,
         "disease": predicted_class,
         "confidence": round(confidence * 100, 2),
+        "leaf_detected": leaf_detected,
+        "message": confidence_message,
         "error": None
     }
 
@@ -386,7 +391,7 @@ async def chat(request: ChatRequest):
     logger.info(f"USER MESSAGE -> {message}")
 
     # =====================================================
-    # SIMPLE DEMO CHAT DATABASE
+    # SIMPLE DISEASE DATABASE
     # =====================================================
 
     DISEASE_DB = {
@@ -411,7 +416,7 @@ async def chat(request: ChatRequest):
     }
 
     # =====================================================
-    # DISEASE FINDER
+    # FIND DISEASE
     # =====================================================
 
     def find_disease(msg):
@@ -429,7 +434,9 @@ async def chat(request: ChatRequest):
 
     disease = find_disease(message)
 
-    logger.info(f"DISEASE DETECTED -> {disease}")
+    logger.info(
+        f"DISEASE DETECTED -> {disease}"
+    )
 
     # =====================================================
     # GREETING
@@ -441,7 +448,9 @@ async def chat(request: ChatRequest):
             "reply": "🌿 Hello! Welcome to PlantDoc AI Assistant!"
         }
 
-        logger.info(f"CHAT RESPONSE -> {response}")
+        logger.info(
+            f"CHAT RESPONSE -> {response}"
+        )
 
         return response
 
@@ -455,7 +464,9 @@ async def chat(request: ChatRequest):
             "reply": DISEASE_DB[disease]["prevent"]
         }
 
-        logger.info(f"PREVENT RESPONSE -> {response}")
+        logger.info(
+            f"PREVENT RESPONSE -> {response}"
+        )
 
         return response
 
@@ -469,7 +480,9 @@ async def chat(request: ChatRequest):
             "reply": DISEASE_DB[disease]["treat"]
         }
 
-        logger.info(f"TREAT RESPONSE -> {response}")
+        logger.info(
+            f"TREAT RESPONSE -> {response}"
+        )
 
         return response
 
@@ -483,30 +496,39 @@ async def chat(request: ChatRequest):
             "reply": DISEASE_DB[disease]["about"]
         }
 
-        logger.info(f"ABOUT RESPONSE -> {response}")
+        logger.info(
+            f"ABOUT RESPONSE -> {response}"
+        )
 
         return response
 
     # =====================================================
-    # UNKNOWN MESSAGE
+    # UNKNOWN QUERY
     # =====================================================
 
     else:
 
         response = {
-            "reply": "Sorry, I didn't understand your request."
+            "reply": (
+                "Sorry, I didn't understand your request. "
+                "Try asking about plant diseases."
+            )
         }
 
         logger.warning(
             f"UNKNOWN USER MESSAGE -> {message}"
         )
 
-        logger.info(f"CHAT RESPONSE -> {response}")
+        logger.info(
+            f"CHAT RESPONSE -> {response}"
+        )
 
         return response
 
 # =========================================================
-# START MESSAGE
+# SERVER START MESSAGE
 # =========================================================
 
-logger.info("PlantDoc Backend Server Started Successfully!")
+logger.info(
+    "PlantDoc Backend Server Started Successfully!"
+)
