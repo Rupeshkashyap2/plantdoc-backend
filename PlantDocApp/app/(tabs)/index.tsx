@@ -14,7 +14,7 @@ export default function HomeScreen() {
 
   const pickImage = async () => {
     let res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ImagePicker.MediaType.Images,
       quality: 1,
     });
     if (!res.canceled) {
@@ -38,11 +38,14 @@ export default function HomeScreen() {
     setLoading(true);
     try {
       const formData = new FormData();
-      formData.append('file', {
-        uri: image,
-        type: 'image/jpeg',
-        name: 'leaf.jpg',
-      });
+      const isWeb = typeof document !== 'undefined';
+      if (isWeb) {
+        const imgResponse = await fetch(image);
+        const blob = await imgResponse.blob();
+        formData.append('file', blob, 'leaf.jpg');
+      } else {
+        formData.append('file', { uri: image, type: 'image/jpeg', name: 'leaf.jpg' } as any);
+      }
       const response = await fetch(`${API_URL}/predict`, {
         method: 'POST',
         body: formData,
@@ -86,6 +89,7 @@ export default function HomeScreen() {
 
         {loading && <ActivityIndicator size="large" color="#4ade80" style={{marginTop: 20}}/>}
 
+
        {result && (
   <View style={styles.resultCard}>
     <Text style={styles.resultTitle}>Detection Result</Text>
@@ -102,6 +106,7 @@ export default function HomeScreen() {
     )}
   </View>
 )}
+
       </ScrollView>
     </View>
   );
@@ -138,7 +143,8 @@ const styles = StyleSheet.create({
   resultTitle: { color: '#6b7280', fontSize: 13, marginBottom: 8 },
   diseaseName: { color: '#e5e7eb', fontSize: 20, fontWeight: 'bold', marginBottom: 4 },
   confidence: { color: '#4ade80', fontSize: 14 },
-  warningBox: {
+
+   warningBox: {
   backgroundColor: '#3a1e1e',
   borderRadius: 10,
   padding: 12,
