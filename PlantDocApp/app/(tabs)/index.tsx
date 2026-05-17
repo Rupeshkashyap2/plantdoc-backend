@@ -14,7 +14,7 @@ export default function HomeScreen() {
 
   const pickImage = async () => {
     let res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ImagePicker.MediaType.Images,
       quality: 1,
     });
     if (!res.canceled) {
@@ -38,11 +38,14 @@ export default function HomeScreen() {
     setLoading(true);
     try {
       const formData = new FormData();
-      formData.append('file', {
-        uri: image,
-        type: 'image/jpeg',
-        name: 'leaf.jpg',
-      });
+      const isWeb = typeof document !== 'undefined';
+      if (isWeb) {
+        const imgResponse = await fetch(image);
+        const blob = await imgResponse.blob();
+        formData.append('file', blob, 'leaf.jpg');
+      } else {
+        formData.append('file', { uri: image, type: 'image/jpeg', name: 'leaf.jpg' } as any);
+      }
       const response = await fetch(`${API_URL}/predict`, {
         method: 'POST',
         body: formData,
@@ -89,8 +92,17 @@ export default function HomeScreen() {
         {result && (
           <View style={styles.resultCard}>
             <Text style={styles.resultTitle}>Detection Result</Text>
-            <Text style={styles.diseaseName}>{result.disease}</Text>
-            <Text style={styles.confidence}>Confidence: {result.confidence}%</Text>
+            {result.error ? (
+              <Text style={styles.errorText}>{result.error}</Text>
+            ) : (
+              <>
+                <Text style={styles.diseaseName}>{result.disease}</Text>
+                <Text style={styles.confidence}>Confidence: {result.confidence}%</Text>
+                {result.warning && (
+                  <Text style={styles.warningText}>⚠️ {result.warning}</Text>
+                )}
+              </>
+            )}
           </View>
         )}
       </ScrollView>
@@ -129,4 +141,6 @@ const styles = StyleSheet.create({
   resultTitle: { color: '#6b7280', fontSize: 13, marginBottom: 8 },
   diseaseName: { color: '#e5e7eb', fontSize: 20, fontWeight: 'bold', marginBottom: 4 },
   confidence: { color: '#4ade80', fontSize: 14 },
+  errorText: { color: '#f87171', fontSize: 15, marginTop: 4 },
+  warningText: { color: '#fbbf24', fontSize: 13, marginTop: 8 },
 });

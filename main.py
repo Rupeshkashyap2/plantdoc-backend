@@ -6,6 +6,7 @@ import numpy as np
 from PIL import Image
 import io
 import os
+import uvicorn
 
 app = FastAPI()
 
@@ -259,3 +260,6 @@ async def chat(request: ChatRequest):
     
     else:
         return {"reply": f"🌿 I'm PlantDoc AI Assistant!\n\nI didn't understand '{request.message}'. Try asking about:\n\n• A specific disease: 'potato early blight'\n• Prevention: 'how to prevent tomato late blight'\n• Treatment: 'how to treat powdery mildew'\n• List all diseases: 'list diseases'\n\nI know about all 38 plant diseases your app can detect!"}
+
+if __name__ == '__main__':
+    uvicorn.run('main:app', host='0.0.0.0', port=8000, reload=True)
